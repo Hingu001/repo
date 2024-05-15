@@ -1,0 +1,98 @@
+app.js
+const express = require('express');
+const body_parser = require('body-parser');
+const userRouter = require('./routers/user.router');
+const app = express();
+app.use(body_parser.json());
+app.use('/',userRouter);
+module.exports = app;
+
+db.js
+const mongoose = require('mongoose');
+const connection = mongoose.createConnection('mongodb://127.0.0.1:27017/news').on('open', () => {
+    console.log("mongodb successfully connected");
+}).on('error', () => {
+    console.log("mongodb connection error");
+});
+module.exports = connection;
+
+user.controller.js
+const UserService=require('../services/user.service');
+
+exports.register = async(req,res,next)=>{
+    try{
+             const {title,subTitle,description}=req.body;
+             const successRes = await UserService.registerUser(title,subTitle,description);
+             res.json({status:true,success:"user registered successfully"});
+    }catch(error){
+        throw error
+    }
+}
+
+user.model.js
+const mongoose = require('mongoose');
+const db = require('../config/db');
+const bcrypt = require("bcrypt");
+const { Schema } = mongoose;
+
+const userSchema = new Schema({
+    title: {
+        type: String,
+        required: true,
+    },
+    subTitle: {
+        type: String,
+        required: true,
+    },
+    description: {
+        type: String,
+        required: true,
+    }
+});
+
+userSchema.pre('save', async function(next) {
+    try {
+        const user = this;
+        const salt = await bcrypt.genSalt(10);
+        const hashtitle = await bcrypt.hash(user.title, salt);
+        const hashsubTitle = await bcrypt.hash(user.subTitle, salt);
+        const hashDescription = await bcrypt.hash(user.description, salt);
+        user.title = hashtitle;
+        user.subTitle = hashsubTitle;
+        user.description = hashDescription;
+        next();
+    } catch (error) {
+        next(error); // Pass error to the next middleware
+    }
+});
+
+const UserModel = db.model('user', userSchema);
+module.exports = UserModel;
+
+user.router.js
+const UserModel = require('../model/user.model');
+class UserServices{
+    static async registerUser(title,subTitle,description){
+         try{
+                 const createUser = new UserModel({title,subTitle,description});
+                 return await createUser.save();
+         }catch(err){
+            throw err;
+         }
+    }
+}
+
+
+module.exports=UserServices;
+
+index.js
+const app=require('./app');
+const db=require('./config/db');
+const UserModel=require('./model/user.model');
+const port = 2000;
+app.get('/',(req,res)=>{
+    res.send("hello");
+});
+app.listen(port,()=>{
+    console.log(`connect successfully http://localhost:${port}`);
+});
